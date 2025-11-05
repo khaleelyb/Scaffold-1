@@ -1,0 +1,5 @@
+{
+  "name": "Vibe Code - AI-Powered Workspace",
+  "description": "An integrated development environment that leverages the Gemini API to analyze, edit, and generate content. Features a multi-mode AI assistant, a chat bot, image analysis capabilities, and the ability to download your entire workspace as a zip file.",
+  "requestFramePermissions": []
+}

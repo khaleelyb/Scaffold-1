@@ -1,12 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GeminiMode, ChatMessage, ScaffoldResponse } from '../types';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const getModelForMode = (mode: GeminiMode | 'chat' | 'scaffold') => {
     switch (mode) {
         case 'thinking':
@@ -27,6 +21,11 @@ export const analyzeWithGemini = async (
     mode: GeminiMode,
     image?: { data: string, mimeType: string }
 ): Promise<string> => {
+    if (!process.env.API_KEY) {
+        throw new Error("API_KEY environment variable not set. Please set it in the environment.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
     const modelName = getModelForMode(mode);
     const fullPrompt = `${prompt}\n\n---\n\nFile Content:\n\`\`\`\n${content}\n\`\`\``;
 
@@ -60,6 +59,10 @@ export const chatWithGemini = async (
     newMessage: string,
     image?: { data: string, mimeType: string }
 ): Promise<string> => {
+    if (!process.env.API_KEY) {
+        throw new Error("API_KEY environment variable not set. Please set it in the environment.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const modelName = getModelForMode('chat');
     
     const promptHistory = history.map(msg => `${msg.role}: ${msg.text}`).join('\n');
@@ -80,7 +83,7 @@ export const chatWithGemini = async (
             model: modelName,
             contents: { parts: parts },
             config: {
-                 systemInstruction: "You are a helpful coding assistant in the Vibe Code app. Be concise and helpful.",
+                 systemInstruction: "You are a helpful coding assistant in the Vibe Code app. Your responses should be concise and accurate.",
             }
         });
         return response.text;
@@ -91,6 +94,10 @@ export const chatWithGemini = async (
 };
 
 export const scaffoldWithGemini = async (prompt: string): Promise<string> => {
+    if (!process.env.API_KEY) {
+        throw new Error("API_KEY environment variable not set. Please set it in the environment.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const modelName = getModelForMode('scaffold');
 
     const scaffoldSchema = {
@@ -135,6 +142,10 @@ export const scaffoldWithGemini = async (prompt: string): Promise<string> => {
 };
 
 export const generateCodeWithGemini = async (prompt: string, context: string): Promise<string> => {
+    if (!process.env.API_KEY) {
+        throw new Error("API_KEY environment variable not set. Please set it in the environment.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const modelName = getModelForMode('scaffold');
 
     const fullPrompt = `Based on the following file content, please fulfill the user's request.\n\n--- FILE CONTENT ---\n${context}\n\n--- USER REQUEST ---\n${prompt}`;
@@ -168,7 +179,7 @@ export const generateCodeWithGemini = async (prompt: string, context: string): P
             model: modelName,
             contents: fullPrompt,
             config: {
-                systemInstruction: "You are a code generation assistant. Based on the user's prompt and the provided file context, generate a list of new or updated files with their full paths and content. The output must be a JSON object matching the provided schema. Only include files to be created or modified.",
+                systemInstruction: "You are a code generation assistant. Based on the user's prompt and the provided file context, generate new or updated files with their full paths and content. The output must be a JSON object matching the provided schema. Only include files to be created or modified.",
                 responseMimeType: "application/json",
                 responseSchema: scaffoldSchema,
             }
@@ -177,5 +188,28 @@ export const generateCodeWithGemini = async (prompt: string, context: string): P
     } catch (e) {
         console.error(`Error calling Gemini scaffold model ${modelName}:`, e);
         throw new Error(`Failed to get scaffold response from Gemini. Please check the console for details.`);
+    }
+};
+
+export const diagnoseProjectWithGemini = async (projectContext: string): Promise<string> => {
+    if (!process.env.API_KEY) {
+        throw new Error("API_KEY environment variable not set. Please set it in the environment.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const modelName = getModelForMode('thinking'); // Use the most powerful model
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: projectContext,
+            config: {
+                systemInstruction: "You are an expert code reviewer and software architect. Analyze the provided project files and provide a detailed diagnosis in Markdown format. The project is a web application. Your analysis should include:\n\n1.  **Project Summary:** A high-level overview of what the application does and its main technologies.\n2.  **Architecture Review:** Comments on the project structure, component design, and data flow.\n3.  **Potential Issues & Bugs:** Identify any potential bugs, logical errors, or anti-patterns.\n4.  **Code Quality & Best Practices:** Comment on code readability, consistency, and adherence to modern best practices.\n5.  **Suggestions for Improvement:** Provide actionable recommendations for refactoring, performance optimization, and improving maintainability.",
+                thinkingConfig: { thinkingBudget: 32768 }
+            }
+        });
+        return response.text;
+    } catch (e) {
+        console.error(`Error calling Gemini model ${modelName} for diagnosis:`, e);
+        throw new Error(`Failed to get project diagnosis from Gemini. Please check the console for details.`);
     }
 };

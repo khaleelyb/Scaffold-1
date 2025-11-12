@@ -5,12 +5,15 @@ import BoltIcon from './icons/BoltIcon';
 import ChatBubbleIcon from './icons/ChatBubbleIcon';
 import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
 import PhotoIcon from './icons/PhotoIcon';
+import ClipboardDocumentCheckIcon from './icons/ClipboardDocumentCheckIcon';
+
 
 interface GeminiPanelProps {
   onGeminiRequest: (prompt: string, mode: GeminiMode) => void;
   onChatRequest: (message: string) => void;
   onScaffoldRequest: (prompt: string) => void;
   onGenerateCodeRequest: (prompt: string) => void;
+  onDiagnoseProjectRequest: () => void;
   chatHistory: ChatMessage[];
   isLoading: boolean;
   uploadedImage: {data: string, mimeType: string} | null;
@@ -28,6 +31,7 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
   onChatRequest,
   onScaffoldRequest,
   onGenerateCodeRequest,
+  onDiagnoseProjectRequest,
   chatHistory,
   isLoading,
   uploadedImage,
@@ -41,7 +45,7 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
   const [prompt, setPrompt] = useState<string>('');
   const [chatMessage, setChatMessage] = useState<string>('');
   const [mode, setMode] = useState<GeminiMode>('low-latency');
-  const [activeRequestType, setActiveRequestType] = useState<'edit' | 'scaffold' | 'code' | null>(null);
+  const [activeRequestType, setActiveRequestType] = useState<'edit' | 'scaffold' | 'code' | 'diagnose' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +95,11 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
         onGenerateCodeRequest(prompt);
         setPrompt('');
     }
+  };
+
+  const handleDiagnoseSubmit = () => {
+    setActiveRequestType('diagnose');
+    onDiagnoseProjectRequest();
   };
 
   const handleChatSubmit = () => {
@@ -150,6 +159,11 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
                 </button>
             </div>
 
+            <button onClick={handleDiagnoseSubmit} disabled={isLoading} className="w-full flex items-center justify-center gap-2 p-2 text-sm bg-yellow-600 rounded-md hover:bg-yellow-500 disabled:bg-gray-600">
+                <ClipboardDocumentCheckIcon className="w-4 h-4" />
+                {isLoading && activeRequestType === 'diagnose' ? 'Diagnosing...' : 'Diagnose Project'}
+            </button>
+
             {uploadedImage && (
                 <div className="relative">
                     <img src={`data:${uploadedImage.mimeType};base64,${uploadedImage.data}`} alt="upload preview" className="rounded-md max-h-32" />
@@ -161,10 +175,10 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
                 <pre className="text-xs whitespace-pre-wrap">{aiResponse}</pre>
                 {isLoading && !aiResponse && <div className="text-center text-gray-400">Gemini is processing...</div>}
             </div>
-            {aiResponse && !isLoading && aiResponseType === 'text' && (
+            {aiResponse && !isLoading && aiResponseType === 'text' && activeRequestType === 'edit' && (
                  <button onClick={onApplyEdit} className="w-full p-2 bg-green-600 rounded-md hover:bg-green-500">Apply as Edit</button>
             )}
-            {aiResponse && !isLoading && isScaffoldJson && (
+            {aiResponse && !isLoading && isScaffoldJson && (activeRequestType === 'scaffold' || activeRequestType === 'code') && (
                  <button onClick={onApplyScaffold} className="w-full p-2 bg-green-600 rounded-md hover:bg-green-500">Apply Scaffold</button>
             )}
         </div>

@@ -1,16 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, ChangeEvent } from 'react';
 import type { FileItem } from '../types';
 import FolderIcon from './icons/FolderIcon';
 import FileIcon from './icons/FileIcon';
 import DownloadIcon from './icons/DownloadIcon';
 import PlusIcon from './icons/PlusIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
+import FolderPlusIcon from './icons/FolderPlusIcon';
+
 
 interface FileExplorerProps {
   files: FileItem[];
   activeFileId: string | null;
   onFileSelect: (id: string) => void;
   onAddFile: () => void;
+  onAddFiles: (files: { path: string, content: string }[]) => void;
   onDownloadProject: () => void;
 }
 
@@ -96,9 +99,52 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   activeFileId,
   onFileSelect,
   onAddFile,
+  onAddFiles,
   onDownloadProject,
 }) => {
   const fileTree = useMemo(() => buildFileTree(files), [files]);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFolderUploadClick = () => {
+    folderInputRef.current?.click();
+  };
+
+  const handleFolderInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const uploadedFiles = event.target.files;
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      return;
+    }
+
+    const filePromises = Array.from(uploadedFiles).map(file => {
+      return new Promise<{ path: string, content: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          // @ts-ignore
+          const path = file.webkitRelativePath;
+          if (path) {
+            resolve({ path, content });
+          } else {
+            reject(new Error(`Could not determine path for file: ${file.name}`));
+          }
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+      });
+    });
+
+    try {
+      const newFiles = await Promise.all(filePromises);
+      onAddFiles(newFiles);
+    } catch (error) {
+      console.error("Error reading uploaded folder:", error);
+      alert("There was an error processing the uploaded folder.");
+    }
+    
+    if(event.target) {
+        event.target.value = '';
+    }
+  };
 
   return (
     <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
@@ -112,13 +158,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         <Tree nodes={fileTree} activeFileId={activeFileId} onFileSelect={onFileSelect} />
       </div>
       <div className="p-2 border-t border-gray-700 space-y-2">
-        <button
-          onClick={onAddFile}
-          className="w-full flex items-center justify-center px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded-md transition-colors"
-        >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            New File
-        </button>
+         <div className="grid grid-cols-2 gap-2">
+            <button
+            onClick={onAddFile}
+            className="w-full flex items-center justify-center px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded-md transition-colors"
+            >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                New File
+            </button>
+            <button
+                onClick={handleFolderUploadClick}
+                className="w-full flex items-center justify-center px-4 py-2 text-sm bg-green-600 hover:bg-green-500 rounded-md transition-colors"
+            >
+                <FolderPlusIcon className="w-4 h-4 mr-2" />
+                Upload
+            </button>
+        </div>
         <button
           onClick={onDownloadProject}
           className="w-full flex items-center justify-center px-4 py-2 text-sm bg-gray-600 hover:bg-gray-500 rounded-md transition-colors"
@@ -126,6 +181,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             <DownloadIcon className="w-4 h-4 mr-2" />
             Download Project
         </button>
+        <input
+          type="file"
+          ref={folderInputRef}
+          onChange={handleFolderInputChange}
+          className="hidden"
+          // @ts-ignore
+          webkitdirectory=""
+          directory=""
+          multiple
+        />
       </div>
     </aside>
   );

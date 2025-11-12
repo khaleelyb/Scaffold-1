@@ -3,7 +3,7 @@ import Editor from './components/Editor';
 import FileExplorer from './components/FileExplorer';
 import GeminiPanel from './components/GeminiPanel';
 import type { FileItem, GeminiMode, ChatMessage, ScaffoldResponse } from './types';
-import { analyzeWithGemini, chatWithGemini, scaffoldWithGemini, generateCodeWithGemini } from './services/geminiService';
+import { analyzeWithGemini, chatWithGemini, scaffoldWithGemini, generateCodeWithGemini, diagnoseProjectWithGemini } from './services/geminiService';
 
 // @ts-ignore
 import JSZip from 'jszip';
@@ -43,6 +43,40 @@ const App: React.FC = () => {
       setFiles(prev => [...prev, newFile]);
       setActiveFileId(newFile.id);
     }
+  }, []);
+  
+  const handleAddFiles = useCallback((uploadedFiles: { path: string; content: string }[]) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
+
+    setFiles(prevFiles => {
+        const fileMap = new Map<string, FileItem>(prevFiles.map(f => [f.path, f]));
+        let firstFileIdToActivate: string | null = null;
+
+        uploadedFiles.forEach(uploadedFile => {
+            const existingFile = fileMap.get(uploadedFile.path);
+            const fileId = existingFile ? existingFile.id : `${Date.now()}-${uploadedFile.path}`;
+            
+            if (!firstFileIdToActivate) {
+                firstFileIdToActivate = fileId;
+            }
+
+            const newOrUpdatedFile: FileItem = {
+                id: fileId,
+                path: uploadedFile.path,
+                content: uploadedFile.content
+            };
+            fileMap.set(uploadedFile.path, newOrUpdatedFile);
+        });
+        
+        const newFileArray = Array.from(fileMap.values());
+
+        if (firstFileIdToActivate) {
+             // Defer setting active file ID to ensure state has updated
+            setTimeout(() => setActiveFileId(firstFileIdToActivate!), 0);
+        }
+
+        return newFileArray;
+    });
   }, []);
   
   const handleDownloadProject = useCallback(() => {
@@ -127,6 +161,23 @@ const App: React.FC = () => {
     }
   }, [activeFile]);
 
+  const handleDiagnoseProjectRequest = useCallback(async () => {
+    setIsLoading(true);
+    setAiResponse('');
+    setAiResponseType('text'); 
+    try {
+        const projectContext = files.map(f => `// File: ${f.path}\n\n${f.content}`).join('\n\n---\n\n');
+        const diagnosisPrompt = `Please provide a comprehensive diagnosis of the following project files:\n\n${projectContext}`;
+        const response = await diagnoseProjectWithGemini(diagnosisPrompt);
+        setAiResponse(response);
+    } catch (error) {
+        console.error("Gemini Diagnose Error:", error);
+        setAiResponse(`Error: ${(error as Error).message}`);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [files]);
+
   const handleApplyScaffold = useCallback(() => {
     try {
         const scaffold: ScaffoldResponse = JSON.parse(aiResponse);
@@ -165,6 +216,7 @@ const App: React.FC = () => {
         activeFileId={activeFileId}
         onFileSelect={setActiveFileId}
         onAddFile={handleAddFile}
+        onAddFiles={handleAddFiles}
         onDownloadProject={handleDownloadProject}
       />
       <main className="flex-1 flex flex-col">
@@ -181,6 +233,7 @@ const App: React.FC = () => {
         onChatRequest={handleChatRequest}
         onScaffoldRequest={handleScaffoldRequest}
         onGenerateCodeRequest={handleGenerateCodeRequest}
+        onDiagnoseProjectRequest={handleDiagnoseProjectRequest}
         chatHistory={chatHistory}
         isLoading={isLoading}
         uploadedImage={uploadedImage}

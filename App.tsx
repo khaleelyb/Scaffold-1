@@ -3,7 +3,7 @@ import Editor from './components/Editor';
 import FileExplorer from './components/FileExplorer';
 import GeminiPanel from './components/GeminiPanel';
 import type { FileItem, GeminiMode, ChatMessage, ScaffoldResponse } from './types';
-import { analyzeWithGemini, chatWithGemini, scaffoldWithGemini } from './services/geminiService';
+import { analyzeWithGemini, chatWithGemini, scaffoldWithGemini, generateCodeWithGemini } from './services/geminiService';
 
 // @ts-ignore
 import JSZip from 'jszip';
@@ -111,6 +111,22 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleGenerateCodeRequest = useCallback(async (prompt: string) => {
+    if (!activeFile) return;
+    setIsLoading(true);
+    setAiResponse('');
+    setAiResponseType('scaffold');
+    try {
+        const response = await generateCodeWithGemini(prompt, activeFile.content);
+        setAiResponse(response);
+    } catch (error) {
+        console.error("Gemini Generate Code Error:", error);
+        setAiResponse(JSON.stringify({ error: `Code generation failed: ${(error as Error).message}`}));
+    } finally {
+        setIsLoading(false);
+    }
+  }, [activeFile]);
+
   const handleApplyScaffold = useCallback(() => {
     try {
         const scaffold: ScaffoldResponse = JSON.parse(aiResponse);
@@ -164,6 +180,7 @@ const App: React.FC = () => {
         onGeminiRequest={handleGeminiRequest}
         onChatRequest={handleChatRequest}
         onScaffoldRequest={handleScaffoldRequest}
+        onGenerateCodeRequest={handleGenerateCodeRequest}
         chatHistory={chatHistory}
         isLoading={isLoading}
         uploadedImage={uploadedImage}

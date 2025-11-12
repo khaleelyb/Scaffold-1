@@ -10,6 +10,7 @@ interface GeminiPanelProps {
   onGeminiRequest: (prompt: string, mode: GeminiMode) => void;
   onChatRequest: (message: string) => void;
   onScaffoldRequest: (prompt: string) => void;
+  onGenerateCodeRequest: (prompt: string) => void;
   chatHistory: ChatMessage[];
   isLoading: boolean;
   uploadedImage: {data: string, mimeType: string} | null;
@@ -26,6 +27,7 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
   onGeminiRequest,
   onChatRequest,
   onScaffoldRequest,
+  onGenerateCodeRequest,
   chatHistory,
   isLoading,
   uploadedImage,
@@ -39,6 +41,7 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
   const [prompt, setPrompt] = useState<string>('');
   const [chatMessage, setChatMessage] = useState<string>('');
   const [mode, setMode] = useState<GeminiMode>('low-latency');
+  const [activeRequestType, setActiveRequestType] = useState<'edit' | 'scaffold' | 'code' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +71,7 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
 
   const handleToolSubmit = () => {
     if (prompt.trim()) {
+      setActiveRequestType('edit');
       onGeminiRequest(prompt, mode);
       setPrompt('');
     }
@@ -75,10 +79,19 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
 
   const handleScaffoldSubmit = () => {
     if (prompt.trim()) {
+      setActiveRequestType('scaffold');
       onScaffoldRequest(prompt);
       setPrompt('');
     }
   }
+
+  const handleGenerateCodeSubmit = () => {
+    if (prompt.trim()) {
+        setActiveRequestType('code');
+        onGenerateCodeRequest(prompt);
+        setPrompt('');
+    }
+  };
 
   const handleChatSubmit = () => {
     if (chatMessage.trim()) {
@@ -119,15 +132,18 @@ const GeminiPanel: React.FC<GeminiPanelProps> = ({
             <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder={`Ask AI to... (e.g., refactor this code) or describe a project to scaffold.`}
+                placeholder={`Ask AI to... (e.g., refactor, generate tests, or scaffold a new project).`}
                 className="w-full h-24 p-2 bg-gray-900 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div className="flex items-center gap-2">
-                <button onClick={handleToolSubmit} disabled={isLoading} className="flex-1 p-2 bg-blue-600 rounded-md hover:bg-blue-500 disabled:bg-gray-600">
-                    {isLoading && aiResponseType === 'text' ? 'Thinking...' : 'Generate Edit'}
+                <button onClick={handleToolSubmit} disabled={isLoading} className="flex-1 p-2 text-sm bg-blue-600 rounded-md hover:bg-blue-500 disabled:bg-gray-600">
+                    {isLoading && activeRequestType === 'edit' ? 'Thinking...' : 'Generate Edit'}
                 </button>
-                 <button onClick={handleScaffoldSubmit} disabled={isLoading} className="flex-1 p-2 bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:bg-gray-600">
-                    {isLoading && aiResponseType === 'scaffold' ? 'Building...' : 'Scaffold Project'}
+                 <button onClick={handleGenerateCodeSubmit} disabled={isLoading} className="flex-1 p-2 text-sm bg-teal-600 rounded-md hover:bg-teal-500 disabled:bg-gray-600">
+                    {isLoading && activeRequestType === 'code' ? 'Generating...' : 'Generate Code'}
+                </button>
+                 <button onClick={handleScaffoldSubmit} disabled={isLoading} className="flex-1 p-2 text-sm bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:bg-gray-600">
+                    {isLoading && activeRequestType === 'scaffold' ? 'Building...' : 'Scaffold Project'}
                 </button>
                 <button onClick={() => fileInputRef.current?.click()} className="p-2 bg-gray-600 rounded-md hover:bg-gray-500">
                     <PhotoIcon className="w-5 h-5"/>

@@ -133,3 +133,49 @@ export const scaffoldWithGemini = async (prompt: string): Promise<string> => {
         throw new Error(`Failed to get scaffold response from Gemini. Please check the console for details.`);
     }
 };
+
+export const generateCodeWithGemini = async (prompt: string, context: string): Promise<string> => {
+    const modelName = getModelForMode('scaffold');
+
+    const fullPrompt = `Based on the following file content, please fulfill the user's request.\n\n--- FILE CONTENT ---\n${context}\n\n--- USER REQUEST ---\n${prompt}`;
+
+    const scaffoldSchema = {
+      type: Type.OBJECT,
+      properties: {
+        files: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              path: {
+                type: Type.STRING,
+                description: 'The full path of the file, including folders. e.g., "src/components/Button.test.tsx"',
+              },
+              content: {
+                type: Type.STRING,
+                description: 'The source code or content of the file.',
+              },
+            },
+            required: ['path', 'content'],
+          },
+        },
+      },
+      required: ['files'],
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: fullPrompt,
+            config: {
+                systemInstruction: "You are a code generation assistant. Based on the user's prompt and the provided file context, generate a list of new or updated files with their full paths and content. The output must be a JSON object matching the provided schema. Only include files to be created or modified.",
+                responseMimeType: "application/json",
+                responseSchema: scaffoldSchema,
+            }
+        });
+        return response.text;
+    } catch (e) {
+        console.error(`Error calling Gemini scaffold model ${modelName}:`, e);
+        throw new Error(`Failed to get scaffold response from Gemini. Please check the console for details.`);
+    }
+};
